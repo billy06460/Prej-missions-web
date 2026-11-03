@@ -2647,7 +2647,7 @@ window.PREJ_IMG = {
       }).then(function (b64s) {
         return JSON.stringify({ v: 1, docs: jobs.map(function (j, i) {
           var carnet = j.key === 'carnet';
-          return { doc: j.key, to: carnet ? j.to.slice(0, 1) : j.to, bcc: carnet ? j.to.slice(1) : [], name: j.doc.name, subject: j.subject || j.label, body: j.body || '', pdf: b64s[i] };
+          return { doc: j.key, to: (carnet ? j.to.slice(0, 1) : j.to).join(', '), bcc: (carnet ? j.to.slice(1) : []).join(', '), name: j.doc.name, subject: j.subject || j.label, body: j.body || '', pdf: b64s[i] };
         }) });
       });
       // La copie est lancée tout de suite, pendant l'appui : Safari l'exige
@@ -2718,7 +2718,7 @@ window.PREJ_IMG = {
     return Promise.all(jobs.map(function (j) { return P.blobToBase64(j.doc.blob); })).then(function (b64s) {
       var payload = JSON.stringify({ v: 1, docs: jobs.map(function (j, i) {
         var carnet = j.key === 'carnet';
-        return { doc: j.key, to: carnet ? j.to.slice(0, 1) : j.to, bcc: carnet ? j.to.slice(1) : [], name: j.doc.name, subject: j.subject || j.label, body: j.body || '', pdf: b64s[i] };
+        return { doc: j.key, to: (carnet ? j.to.slice(0, 1) : j.to).join(', '), bcc: (carnet ? j.to.slice(1) : []).join(', '), name: j.doc.name, subject: j.subject || j.label, body: j.body || '', pdf: b64s[i] };
       }) });
       return webShareButtons(jobs, el, results, payload);
     });
