@@ -1654,7 +1654,7 @@ window.PREJ_IMG = {
       '</div>' +
       '<div class="grid2" style="margin-top:12px">' +
         '<button class="btn" id="f-preview">Aperçu</button>' +
-        '<button class="btn" id="f-share">Partager le PDF</button>' +
+        '<button class="btn" id="f-share">Enregistrer le PDF</button>' +
       '</div>' +
       (m.fouilles.length > 1 ? '<button class="btn btn-ghost btn-block" id="f-del" style="color:var(--danger);margin-top:8px">Supprimer cette décision (' + (idx + 1) + ')</button>' : '');
 
@@ -1907,7 +1907,7 @@ window.PREJ_IMG = {
         '<div class="section"><div class="section-title"><span class="section-num">02</span><h3>Information(s) sur la mission</h3></div>' +
           '<div class="field"><textarea id="r-infos" placeholder="Incidents, observations, remarques…" aria-label="Informations sur la mission">' + P.esc(r.infos) + '</textarea></div></div>' +
       '</div>' +
-      '<button class="btn btn-block" id="r-share" style="margin-top:12px">Partager le PDF</button>';
+      '<button class="btn btn-block" id="r-share" style="margin-top:12px">Enregistrer le PDF</button>';
 
     var keys = ['priseService', 'priseCharge', 'juridiction', 'depose', 'finMission', 'finService', 'infos'];
     main.addEventListener('input', function (e) {
@@ -2208,7 +2208,7 @@ window.PREJ_IMG = {
           '<div class="photo-grid" id="c-photos">' + renderPhotos() + '</div>' +
         '</div>' +
       '</div></div>' +
-      '<button class="btn btn-block" id="c-share" style="margin-top:12px">Partager le PDF</button>';
+      '<button class="btn btn-block" id="c-share" style="margin-top:12px">Enregistrer le PDF</button>';
 
     function save() {
       c.plate = P.$('#c-plate').value.trim().toUpperCase();
@@ -2604,18 +2604,18 @@ window.PREJ_IMG = {
       if (st[k[0]].missing.length) miss.push('<li><b>' + k[1] + '</b> : ' + st[k[0]].missing.map(P.esc).join(' ; ') + '</li>');
     });
     var go = function () { run(m, jobs); };
-    if (!miss.length) return confirmSend(m, jobs).then(function (ok) { if (ok) go(); });
-    P.confirm('Documents incomplets', '<div class="missing">Il manque :<ul>' + miss.join('') + '</ul></div><p>Envoyer quand même ?</p>',
-      'Envoyer quand même', 'Compléter').then(function (ok) { if (ok) go(); });
+    if (!miss.length) return go();
+    P.confirm('Documents incomplets', '<div class="missing">Il manque :<ul>' + miss.join('') + '</ul></div><p>Valider quand même ?</p>',
+      'Valider quand même', 'Compléter').then(function (ok) { if (ok) go(); });
   };
 
   function confirmSend(m, jobs) {
     var list = jobs.map(function (j) { return '<li><b>' + P.esc(j.label) + '</b> → ' + P.esc(j.to.join(', ')) + '</li>'; }).join('');
-    return P.confirm('Envoyer la mission ' + (m.numero || ''),
+    return P.confirm('Valider la mission ' + (m.numero || ''),
       (sms() ? '<p>Les PDF partent par MMS, sans ouvrir Messages :</p>'
-        : '<p>Chaque PDF s\'envoie depuis le menu Partager du téléphone. L\'adresse du destinataire est copiée à chaque fois :</p>') +
+        : '<p>Les PDF vont être créés et enregistrés, puis expédiés par mail avec le raccourci « Envoyer PREJ » :</p>') +
       '<ul style="padding-left:18px;font-size:14px">' + list + '</ul>',
-      'Envoyer', 'Annuler');
+      'Valider', 'Annuler');
   }
 
   function row(j) {
@@ -2632,18 +2632,45 @@ window.PREJ_IMG = {
 
   function run(m, jobs) {
     P.sending = true;
-    var dlg = P.modal('<h3>Envoi en cours</h3><p>' + (sms()
+    var dlg = P.modal('<h3>Validation en cours</h3><p>' + (sms()
         ? 'Gardez l\'application ouverte et les données mobiles activées. Chaque MMS peut prendre jusqu\'à une minute.'
-        : 'Touchez « Partager » pour chaque document, choisissez Mail ou Messages, puis collez l\'adresse copiée dans « À ».') + '</p>' +
+        : 'Création des PDF, puis ouverture du raccourci « Envoyer PREJ », qui expédie les mails.') + '</p>' +
       '<ul class="progress-list">' + jobs.map(row).join('') + '</ul><div class="actions" id="sendActions" hidden></div>', { locked: true, focus: false });
     var el = dlg.el, results = [], native = !!sms();
     var chain = Promise.resolve();
 
     if (!native) {
-      // Navigateur (iPhone, Safari) : un partage par document, chacun lancé par un appui
-      chain = Promise.all(jobs.map(function (j) { return j.build(); })).then(function (docs) {
-        jobs.forEach(function (j, i) { j.doc = docs[i]; setRow(el, j.key, 'run', 'PDF prêt : touchez « Partager »'); });
-        return webShareSteps(jobs, el, results);
+      // iPhone : les PDF sont créés, placés dans le presse-papiers et transmis au raccourci « Envoyer PREJ », qui expédie les mails
+      var built = Promise.all(jobs.map(function (j) { return j.build(); })).then(function (docs) {
+        jobs.forEach(function (j, i) { j.doc = docs[i]; setRow(el, j.key, 'run', 'PDF enregistré'); });
+        return Promise.all(jobs.map(function (j) { return P.blobToBase64(j.doc.blob); }));
+      }).then(function (b64s) {
+        return JSON.stringify({ v: 1, docs: jobs.map(function (j, i) {
+          var carnet = j.key === 'carnet';
+          return { doc: j.key, to: carnet ? j.to.slice(0, 1) : j.to, bcc: carnet ? j.to.slice(1) : [], name: j.doc.name, subject: j.subject || j.label, body: j.body || '', pdf: b64s[i] };
+        }) });
+      });
+      // La copie est lancée tout de suite, pendant l'appui : Safari l'exige
+      var copied;
+      try {
+        if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+          copied = navigator.clipboard.write([new ClipboardItem({ 'text/plain': built.then(function (t) { return new Blob([t], { type: 'text/plain' }); }) })]);
+        } else {
+          copied = built.then(function (t) { return navigator.clipboard.writeText(t); });
+        }
+      } catch (e) { copied = Promise.reject(e); }
+      chain = Promise.all([built, copied]).then(function () {
+        jobs.forEach(function (j) {
+          setRow(el, j.key, 'ok', 'Transmis au raccourci pour ' + j.to.join(', '));
+          results.push({ job: j, ok: true, info: 'Transmis au raccourci « ' + P.SHORTCUT_NAME + ' » pour ' + j.to.join(', ') });
+        });
+        P.openUrl('shortcuts://run-shortcut?name=' + encodeURIComponent(P.SHORTCUT_NAME) + '&input=clipboard');
+      }, function (e) {
+        // Secours si la copie automatique est refusée : un bouton « Expédier par mail » à toucher
+        return built.then(function () {
+          jobs.forEach(function (j) { setRow(el, j.key, 'run', 'PDF enregistré, prêt à expédier'); });
+          return webShareSteps(jobs, el, results);
+        });
       }).catch(function (e) {
         var msg = String((e && e.message) || e);
         jobs.forEach(function (j) { if (!results.some(function (r) { return r.job === j; })) { results.push({ job: j, ok: false, info: msg }); setRow(el, j.key, 'ko', msg); } });
@@ -2683,18 +2710,60 @@ window.PREJ_IMG = {
   }
 
   // Partage un PDF par appui : Safari n'autorise qu'un menu Partager par geste de l'utilisateur
+  P.SHORTCUT_NAME = 'Envoyer PREJ';
+  P.openUrl = function (u) { window.location.href = u; };
+
   function webShareSteps(jobs, el, results) {
+    // Les PDF sont convertis à l'avance : la copie dans le presse-papiers doit partir dès l'appui
+    return Promise.all(jobs.map(function (j) { return P.blobToBase64(j.doc.blob); })).then(function (b64s) {
+      var payload = JSON.stringify({ v: 1, docs: jobs.map(function (j, i) {
+        var carnet = j.key === 'carnet';
+        return { doc: j.key, to: carnet ? j.to.slice(0, 1) : j.to, bcc: carnet ? j.to.slice(1) : [], name: j.doc.name, subject: j.subject || j.label, body: j.body || '', pdf: b64s[i] };
+      }) });
+      return webShareButtons(jobs, el, results, payload);
+    });
+  }
+
+  function webShareButtons(jobs, el, results, payload) {
     return new Promise(function (resolve) {
       var act = el.querySelector('#sendActions');
-      var done = {};
-      act.innerHTML = jobs.map(function (j, i) {
-        return '<button class="btn" data-wshare="' + i + '">Partager : ' + P.esc(j.label) + '</button>';
-      }).join('') + '<button class="btn btn-primary" data-wend>Terminer</button>';
+      var done = {}, saved = {};
+      act.innerHTML =
+        '<button class="btn btn-primary" data-wshortcut style="grid-column:1/-1;width:100%;flex-basis:100%">Expédier par mail</button>' +
+        '<div data-wask hidden style="grid-column:1/-1;width:100%;flex-basis:100%">' +
+          '<p style="margin:0 0 8px">Les mails sont-ils partis ?</p>' +
+          '<div style="display:flex;gap:8px"><button class="btn btn-primary" data-wyes style="flex:1">Oui, tout est parti</button>' +
+          '<button class="btn" data-wno style="flex:1">Non</button></div></div>' +
+        jobs.map(function (j, i) {
+          return '<button class="btn" data-wshare="' + i + '">Enregistrer : ' + P.esc(j.label) + '</button>';
+        }).join('') + '<button class="btn" data-wend>Terminer</button>';
       act.hidden = false;
+      var ask = act.querySelector('[data-wask]');
+      act.querySelector('[data-wshortcut]').onclick = function () {
+        var go = function () {
+          jobs.forEach(function (j) { setRow(el, j.key, 'run', 'Transmis au raccourci « ' + P.SHORTCUT_NAME + ' »…'); });
+          P.openUrl('shortcuts://run-shortcut?name=' + encodeURIComponent(P.SHORTCUT_NAME) + '&input=clipboard');
+          jobs.forEach(function (j) { done[j.key] = true; setRow(el, j.key, 'ok', 'Transmis au raccourci pour ' + j.to.join(', ')); });
+          act.querySelector('[data-wend]').click();
+        };
+        try {
+          navigator.clipboard.writeText(payload).then(go, function () {
+            P.toast('Copie impossible : touchez à nouveau « Expédier par mail ».', 5000);
+          });
+        } catch (e) { P.toast('Copie impossible : touchez à nouveau « Expédier par mail ».', 5000); }
+      };
+      act.querySelector('[data-wyes]').onclick = function () {
+        jobs.forEach(function (j) { done[j.key] = true; setRow(el, j.key, 'ok', 'Expédié par mail à ' + j.to.join(', ')); });
+        try { navigator.clipboard.writeText(' ').catch(function () {}); } catch (e) {}
+        act.querySelector('[data-wend]').click();
+      };
+      act.querySelector('[data-wno]').onclick = function () {
+        ask.hidden = true;
+        jobs.forEach(function (j) { if (!done[j.key]) setRow(el, j.key, 'run', 'PDF enregistré : touchez à nouveau « Expédier par mail »'); });
+      };
       P.$$('[data-wshare]', act).forEach(function (b) {
         b.onclick = function () {
           var j = jobs[Number(b.getAttribute('data-wshare'))], to = j.to.join(', ');
-          try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(to).catch(function () {}); } catch (e) {}
           var file = null;
           try { file = new File([j.doc.blob], j.doc.name, { type: 'application/pdf' }); } catch (e) {}
           var p;
@@ -2706,20 +2775,20 @@ window.PREJ_IMG = {
             p = Promise.resolve();
           }
           p.then(function () {
-            done[j.key] = true; b.disabled = true;
-            setRow(el, j.key, 'ok', 'Partagé — destinataire : ' + to);
+            saved[j.key] = true;
+            setRow(el, j.key, 'run', 'PDF enregistré, pas encore expédié');
           }).catch(function (e) {
-            if (e && e.name === 'AbortError') { setRow(el, j.key, 'run', 'Partage annulé : touchez à nouveau « Partager »'); return; }
-            setRow(el, j.key, 'ko', 'Partage impossible : ' + String((e && e.message) || e));
+            if (e && e.name === 'AbortError') { setRow(el, j.key, 'run', 'Enregistrement annulé'); return; }
+            setRow(el, j.key, 'ko', 'Enregistrement impossible : ' + String((e && e.message) || e));
           });
-          P.toast('Adresse copiée : ' + to, 4000);
         };
       });
       act.querySelector('[data-wend]').onclick = function () {
         jobs.forEach(function (j) {
-          results.push(done[j.key] ? { job: j, ok: true, info: 'Partagé vers ' + j.to.join(', ') }
-            : { job: j, ok: false, failedTo: j.to, info: 'Non partagé' });
-          if (!done[j.key]) setRow(el, j.key, 'ko', 'Non partagé');
+          var info = saved[j.key] ? 'PDF enregistré, mail non expédié' : 'Mail non expédié';
+          results.push(done[j.key] ? { job: j, ok: true, info: 'Expédié par mail à ' + j.to.join(', ') }
+            : { job: j, ok: false, failedTo: j.to, info: info });
+          if (!done[j.key]) setRow(el, j.key, 'ko', info);
         });
         act.innerHTML = ''; act.hidden = true;
         resolve();
@@ -2742,13 +2811,13 @@ window.PREJ_IMG = {
     }
     P.saveMissions();
 
-    el.querySelector('h3').textContent = allOk ? 'Mission envoyée' : 'Envoi incomplet';
-    el.querySelector('p').textContent = allOk ? 'Tous les documents sont partis.' : 'Certains documents ne sont pas partis. Vous pouvez les envoyer à la main.';
+    el.querySelector('h3').textContent = allOk ? 'Mission validée' : 'Mails non expédiés';
+    el.querySelector('p').textContent = allOk ? 'Les PDF sont enregistrés et transmis au raccourci « Envoyer PREJ », qui expédie les mails.' : 'Pour expédier les mails, rouvrez la mission et touchez « Valider et enregistrer les PDF », puis « Expédier par mail ».';
     var act = el.querySelector('#sendActions');
     var failed = results.filter(function (r) { return !r.ok && r.job.doc; });
     act.innerHTML = failed.map(function (r, i) {
       return (sms() ? '<button class="btn" data-msg="' + i + '">Messages : ' + P.esc(r.job.label) + '</button>' : '') +
-        '<button class="btn" data-share="' + i + '">Partager : ' + P.esc(r.job.label) + '</button>';
+        '<button class="btn" data-share="' + i + '">Enregistrer : ' + P.esc(r.job.label) + '</button>';
     }).join('') + '<button class="btn btn-primary" data-a="close">Fermer</button>';
     act.hidden = false;
     act.querySelector('[data-a="close"]').onclick = function () { dlg.close(); if (P.refreshHome) P.refreshHome(); };
@@ -3024,7 +3093,7 @@ window.PREJ_IMG = {
       });
     };
     $$('[data-doc]').forEach(function (b) { b.onclick = function () { P.go('#/m/' + m.id + '/' + b.getAttribute('data-doc')); }; });
-    bar('<div class="in"><button class="btn btn-primary btn-lg" id="h-send">' + (st.allOk ? 'Valider et envoyer les PDF' : 'Envoyer les PDF') + '</button></div>');
+    bar('<div class="in"><button class="btn btn-primary btn-lg" id="h-send">' + (st.allOk ? 'Valider et enregistrer les PDF' : 'Enregistrer les PDF') + '</button></div>');
     $('#h-send').onclick = function () { P.sendMission(m); };
   }
 
