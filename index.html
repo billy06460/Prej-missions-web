@@ -1342,7 +1342,7 @@ window.PREJ_IMG = {
 
   P.fouilleMissing = function (f) {
     var miss = [];
-    if (!filled((f.detenu || '').trim())) miss.push('personne détenue');
+    if (!filled((f.detenu || '').trim())) miss.push('n° d\'écrou');
     if (!filled((f.etablissement || '').trim())) miss.push('établissement');
     if (!f.lors) miss.push('« Lors de »');
     var any = P.MOTIFS.some(function (x) { return f.motifs && f.motifs[x[0]]; });
@@ -1358,7 +1358,7 @@ window.PREJ_IMG = {
     (m.fouilles || []).forEach(function (f, i) {
       var x = P.fouilleMissing(f);
       if (!x.length) fOk++;
-      else fm.push('Fouille ' + (i + 1) + (f.detenu ? ' (' + f.detenu + ')' : '') + ' : ' + x.join(', '));
+      else fm.push('Fouille ' + (i + 1) + (f.detenu ? ' (écrou ' + f.detenu + ')' : '') + ' : ' + x.join(', '));
     });
     if (!m.signature) fm.push("signature du chef d'escorte");
     var nF = (m.fouilles || []).length;
@@ -1383,7 +1383,7 @@ window.PREJ_IMG = {
     if (!filled(c.kmEnd)) cm.push('kilométrage de fin');
     var cAny = filled(c.plate) || filled(c.kmStart) || filled(c.kmEnd) || (c.photos || []).length;
     out.carnet = { state: cm.length === 0 ? 'ok' : (cAny ? 'part' : 'empty'), label: cm.length ? (cAny ? 'En cours' : 'À remplir') : 'Complet', missing: cm };
-    out.allOk = out.fouille.state === 'ok' && out.retour.state === 'ok' && out.carnet.state === 'ok';
+    out.allOk = out.fouille.state === 'ok' && out.retour.state === 'ok';
     return out;
   };
 
@@ -1614,7 +1614,7 @@ window.PREJ_IMG = {
 
     var chips = m.fouilles.map(function (x, i) {
       return '<button class="state-pill' + (x === f ? ' on' : '') + '" data-lvl="' + (P.fouilleMissing(x).length ? 'minor' : 'ok') + '" data-go="' + x.id + '">' +
-        (i + 1) + ' · ' + P.esc(x.detenu || 'Sans nom') + '</button>';
+        (i + 1) + ' · ' + (x.detenu ? 'Écrou ' + P.esc(x.detenu) : 'Sans n° d\'écrou') + '</button>';
     }).join('') + '<button class="state-pill" data-add="1">+ Ajouter</button>';
 
     var motifs = P.MOTIFS.map(function (x) {
@@ -1624,7 +1624,7 @@ window.PREJ_IMG = {
     }).join('');
 
     main.innerHTML =
-      (m.detenusPurgedAt ? '<div class="missing">Les noms des personnes détenues ont été effacés automatiquement ' +
+      (m.detenusPurgedAt ? '<div class="missing">Les numéros d\'écrou ont été effacés automatiquement ' +
         (m.detenusPurgeReason === 'envoi' ? 'après l\'envoi de la décision de fouille' : '48 h après la création de la mission') + '.</div>' : '') +
       '<div class="state-row" style="margin-bottom:10px">' + chips + '</div>' +
       '<div class="panel">' +
@@ -1637,7 +1637,7 @@ window.PREJ_IMG = {
             '<dt>Signature</dt><dd>' + (m.signature ? 'Enregistrée' : '<span class="err">À faire sur la page de la mission</span>') + '</dd>' +
           '</dl></div>' +
         '<div class="section"><div class="section-title"><span class="section-num">01</span><h3>Personne détenue</h3></div>' +
-          '<div class="field"><label for="f-detenu">Personne détenue</label><input type="text" id="f-detenu" value="' + P.esc(f.detenu) + '" autocapitalize="characters" placeholder="NOM Prénom, n° d\'écrou"></div>' +
+          '<div class="field"><label for="f-detenu">Numéro d\'écrou</label><input type="text" id="f-detenu" value="' + P.esc(f.detenu) + '" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Ex. : 123456"></div>' +
           '<div class="field"><label for="f-etab">Établissement</label><input type="text" id="f-etab" value="' + P.esc(f.etablissement) + '"></div>' +
           '<div class="field"><label for="f-dest">À destination de</label><input type="text" id="f-dest" value="' + P.esc(f.destination) + '" placeholder="Tribunal, hôpital…"></div>' +
         '</div>' +
@@ -1652,10 +1652,7 @@ window.PREJ_IMG = {
         '<div class="section"><div class="section-title"><span class="section-num">05</span><h3>Observations</h3></div>' +
           '<div class="field"><textarea id="f-obs" maxlength="420" aria-label="Observations">' + P.esc(f.obs) + '</textarea></div></div>' +
       '</div>' +
-      '<div class="grid2" style="margin-top:12px">' +
-        '<button class="btn" id="f-preview">Aperçu</button>' +
-        '<button class="btn" id="f-share">Enregistrer le PDF</button>' +
-      '</div>' +
+      '<button class="btn btn-block" id="f-preview" style="margin-top:12px">Aperçu</button>' +
       (m.fouilles.length > 1 ? '<button class="btn btn-ghost btn-block" id="f-del" style="color:var(--danger);margin-top:8px">Supprimer cette décision (' + (idx + 1) + ')</button>' : '');
 
     function save() {
@@ -1693,7 +1690,7 @@ window.PREJ_IMG = {
     };
     var del = P.$('#f-del');
     if (del) del.onclick = function () {
-      P.confirm('Supprimer cette décision ?', '<p>La décision de fouille de ' + P.esc(f.detenu || 'cette personne') + ' sera supprimée.</p>', 'Supprimer').then(function (ok) {
+      P.confirm('Supprimer cette décision ?', '<p>La décision de fouille' + (f.detenu ? ' (écrou ' + P.esc(f.detenu) + ')' : '') + ' sera supprimée.</p>', 'Supprimer').then(function (ok) {
         if (!ok) return;
         m.fouilles.splice(m.fouilles.indexOf(f), 1); P.saveMissions();
         P.go('#/m/' + m.id + '/fouille/' + m.fouilles[0].id, true);
@@ -1704,11 +1701,6 @@ window.PREJ_IMG = {
       P.fouillePreview(m, f).then(function (url) {
         P.modal('<h3>Aperçu</h3><img class="preview-img" src="' + url + '" alt="Aperçu de la décision de fouille"><div class="actions"><button class="btn btn-primary" onclick="P.closeModals()">Fermer</button></div>', { focus: false });
       });
-    };
-    P.$('#f-share').onclick = function () {
-      save();
-      P.buildFouillePdf(m).then(function (doc) { P.shareFile(doc.blob, doc.name, 'Décision de fouille'); })
-        .catch(function (e) { P.toast(String(e.message || e), 4000); });
     };
   };
 
@@ -1781,7 +1773,7 @@ window.PREJ_IMG = {
     var n2 = field('A destination de :', 108, y, d.dest, R);
     y += Math.max(n1, n2) * 4.8 + 3.5;
     y += field('Etablissement :', M, y, d.etab, R) * 4.8 + 3.5;
-    y += field('Personne détenue :', M, y, d.detenu, R) * 4.8 + 3.5;
+    y += field('N° d\'écrou :', M, y, d.detenu, R) * 4.8 + 3.5;
     label('Motivation de la décision :', M, y); y += 7;
     b.font(10.5, 'normal'); b.text('Lors de :', M, y); y += 7;
     box(M, y, d.lors === 'extraction'); b.text('Départ en extraction judiciaire', M + 6, y);
@@ -1853,7 +1845,7 @@ window.PREJ_IMG = {
         if (i > 0) doc.addPage();
         drawDoc(pdfBackend(doc), data(m, f, sig, logo));
       });
-      return { blob: doc.output('blob'), name: 'Decision_fouille_OM-' + P.safeName(m.numero) + '_' + m.date + '.pdf' };
+      return { blob: doc.output('blob'), name: 'Decision_fouille_OM-' + P.safeName(m.numero) + '_' + m.date + (m._partie ? '_partie' + m._partie : '') + '.pdf' };
     }); });
   };
 })();
@@ -1906,8 +1898,7 @@ window.PREJ_IMG = {
         '</div>' +
         '<div class="section"><div class="section-title"><span class="section-num">02</span><h3>Information(s) sur la mission</h3></div>' +
           '<div class="field"><textarea id="r-infos" placeholder="Incidents, observations, remarques…" aria-label="Informations sur la mission">' + P.esc(r.infos) + '</textarea></div></div>' +
-      '</div>' +
-      '<button class="btn btn-block" id="r-share" style="margin-top:12px">Enregistrer le PDF</button>';
+      '</div>';
 
     var keys = ['priseService', 'priseCharge', 'juridiction', 'depose', 'finMission', 'finService', 'infos'];
     main.addEventListener('input', function (e) {
@@ -1919,10 +1910,6 @@ window.PREJ_IMG = {
       }
       P.touch(m);
     });
-    P.$('#r-share').onclick = function () {
-      P.buildRetourPdf(m).then(function (d) { P.shareFile(d.blob, d.name, 'Fiche retour mission'); })
-        .catch(function (e) { P.toast(String(e.message || e), 4000); });
-    };
   };
 
   // ---------------------------------------------------------------- images de l'en-tête
@@ -2207,8 +2194,7 @@ window.PREJ_IMG = {
           '<input type="file" id="c-photo" accept="image/*" capture="environment" multiple class="visually-hidden">' +
           '<div class="photo-grid" id="c-photos">' + renderPhotos() + '</div>' +
         '</div>' +
-      '</div></div>' +
-      '<button class="btn btn-block" id="c-share" style="margin-top:12px">Enregistrer le PDF</button>';
+      '</div></div>';
 
     function save() {
       c.plate = P.$('#c-plate').value.trim().toUpperCase();
@@ -2274,11 +2260,6 @@ window.PREJ_IMG = {
         });
       });
     });
-    P.$('#c-share').onclick = function () {
-      P.toast('Génération du PDF…');
-      P.buildCarnetPdf(m).then(function (d) { P.shareFile(d.blob, d.name, 'Carnet de bord'); })
-        .catch(function (e) { P.toast(String(e.message || e), 4000); });
-    };
   };
 
   // ---------------------------------------------------------------- PDF (MiniPDF, hors ligne)
@@ -2503,6 +2484,16 @@ window.PREJ_IMG = {
 
   // ---------------------------------------------------------------- autorisation SMS (repris du carnet)
   function sms() { return P.plugin('SmsComposer'); }
+  // Mode d'envoi choisi dans la roue dentée : 'mms' (par défaut) ou 'mail' (opérateurs sans MMS vers adresse mail, ex. Free)
+  P.mailMode = function () { return P.settings.sendMode === 'mail'; };
+  function mailer() { var p = sms(); return p && P.mailMode() && p.composeEmail ? p : null; }
+  function openMail(j) {
+    return P.blobToBase64(j.doc.blob).then(function (b64) {
+      // Carnet de bord : la 2e adresse part en copie cachée (Cci)
+      var to = j.key === 'carnet' ? j.to.slice(0, 1) : j.to, bcc = j.key === 'carnet' ? j.to.slice(1) : [];
+      return mailer().composeEmail({ to: to, bcc: bcc, subject: j.subject || j.label, body: j.body || '', attachments: [{ name: j.doc.name, data: b64 }] });
+    });
+  }
   P.isSmsGranted = function () {
     var S = sms();
     if (!S || typeof S.checkPermissions !== 'function') return Promise.resolve(true);
@@ -2555,7 +2546,7 @@ window.PREJ_IMG = {
   function fouilleBody(m) {
     return 'Décision(s) de fouille — OM ' + (m.numero || '-') + ' — ' + P.frDate(m.date) + '\n' +
       "Chef d'escorte : " + (m.chef || '-') + '\n' +
-      'Personne(s) détenue(s) : ' + (m.fouilles.map(function (f) { return f.detenu || '?'; }).join(', ') || '-') + '\n' +
+      'N° d\'écrou : ' + (m.fouilles.map(function (f) { return f.detenu || '?'; }).join(', ') || '-') + '\n' +
       '(PDF en pièce jointe)';
   }
   function retourBody(m) {
@@ -2568,22 +2559,33 @@ window.PREJ_IMG = {
 
   function jobsFor(m) {
     var s = P.settings, jobs = [];
-    if (m.fouilles.length) jobs.push({
-      key: 'fouille', label: 'Décision' + (m.fouilles.length > 1 ? 's' : '') + ' de fouille (' + m.fouilles.length + ')',
-      to: [s.fouilleEmail].filter(Boolean), subject: 'Décision de fouille - OM ' + (m.numero || ''),
-      body: fouilleBody(m), build: function () { return P.buildFouillePdf(m); }
-    });
+    // Au-delà de P.FOUILLES_PAR_PDF personnes détenues, les décisions sont réparties sur plusieurs PDF,
+    // chacun envoyé à part (MMS ou pièce jointe), pour rester sous la taille maximale d'un envoi.
+    var n = m.fouilles.length, per = P.FOUILLES_PAR_PDF, parts = Math.ceil(n / per);
+    for (var k = 0; k < parts; k++) (function (k) {
+      var chunk = m.fouilles.slice(k * per, (k + 1) * per);
+      var sub = Object.assign({}, m, { fouilles: chunk, _partie: parts > 1 ? (k + 1) + 'sur' + parts : '' });
+      jobs.push({
+        key: k === 0 ? 'fouille' : 'fouille' + (k + 1), kind: 'fouille',
+        label: parts > 1 ? 'Décisions de fouille ' + (k * per + 1) + ' à ' + (k * per + chunk.length) + ' sur ' + n + ' (envoi ' + (k + 1) + '/' + parts + ')'
+          : 'Décision' + (n > 1 ? 's' : '') + ' de fouille (' + n + ')',
+        to: uniq([s.fouilleEmail, s.fouilleEmail2]),
+        subject: 'Décision de fouille - OM ' + (m.numero || '') + (parts > 1 ? ' (' + (k + 1) + '/' + parts + ')' : ''),
+        body: fouilleBody(sub), build: function () { return P.buildFouillePdf(sub); }
+      });
+    })(k);
     jobs.push({
-      key: 'retour', label: 'Fiche retour mission', to: [s.retourEmail].filter(Boolean),
+      key: 'retour', label: 'Fiche retour mission', to: uniq([s.retourEmail, s.retourEmail2]),
       subject: 'Fiche retour mission - OM ' + (m.numero || ''), body: retourBody(m),
       build: function () { return P.buildRetourPdf(m); }
     });
-    jobs.push({
-      key: 'carnet', label: 'Carnet de bord', to: [P.resp.email1, P.resp.email2].filter(Boolean),
-      subject: ('Fiche mission ' + (m.carnet.plate || '') + (m.numero ? ' - ' + m.numero : '')).trim(),
-      body: P.carnetBodyText(m), build: function () { return P.buildCarnetPdf(m); }
-    });
     return jobs;
+  }
+  P.FOUILLES_PAR_PDF = 25;   // ≈ 90 Ko par PDF de 25 décisions : largement sous la limite des MMS (600 Ko)
+  function uniq(list) {
+    var out = [];
+    list.forEach(function (a) { a = (a || '').trim(); if (a && out.indexOf(a) < 0) out.push(a); });
+    return out;
   }
 
   // ---------------------------------------------------------------- lancement
@@ -2600,7 +2602,7 @@ window.PREJ_IMG = {
     }
     var st = P.status(m);
     var miss = [];
-    [['fouille', 'Décision de fouille'], ['retour', 'Fiche retour mission'], ['carnet', 'Carnet de bord']].forEach(function (k) {
+    [['fouille', 'Décision de fouille'], ['retour', 'Fiche retour mission']].forEach(function (k) {
       if (st[k[0]].missing.length) miss.push('<li><b>' + k[1] + '</b> : ' + st[k[0]].missing.map(P.esc).join(' ; ') + '</li>');
     });
     var go = function () { run(m, jobs); };
@@ -2612,7 +2614,8 @@ window.PREJ_IMG = {
   function confirmSend(m, jobs) {
     var list = jobs.map(function (j) { return '<li><b>' + P.esc(j.label) + '</b> → ' + P.esc(j.to.join(', ')) + '</li>'; }).join('');
     return P.confirm('Valider la mission ' + (m.numero || ''),
-      (sms() ? '<p>Les PDF partent par MMS, sans ouvrir Messages :</p>'
+      (mailer() ? '<p>Un seul mail avec tous les PDF joints, envoyé à :</p>'
+        : sms() ? '<p>Les PDF partent par MMS, sans ouvrir Messages :</p>'
         : '<p>Les PDF vont être créés et enregistrés, puis expédiés par mail avec le raccourci « Envoyer PREJ » :</p>') +
       '<ul style="padding-left:18px;font-size:14px">' + list + '</ul>',
       'Valider', 'Annuler');
@@ -2632,14 +2635,18 @@ window.PREJ_IMG = {
 
   function run(m, jobs) {
     P.sending = true;
-    var dlg = P.modal('<h3>Validation en cours</h3><p>' + (sms()
+    var dlg = P.modal('<h3>Validation en cours</h3><p>' + (mailer()
+        ? 'Gmail s\'ouvre avec les adresses et les PDF joints (en plusieurs mails à la suite si les pièces jointes sont trop lourdes) : touchez « Envoyer », puis revenez dans l\'appli.'
+        : sms()
         ? 'Gardez l\'application ouverte et les données mobiles activées. Chaque MMS peut prendre jusqu\'à une minute.'
         : 'Création des PDF, puis ouverture du raccourci « Envoyer PREJ », qui expédie les mails.') + '</p>' +
       '<ul class="progress-list">' + jobs.map(row).join('') + '</ul><div class="actions" id="sendActions" hidden></div>', { locked: true, focus: false });
     var el = dlg.el, results = [], native = !!sms();
     var chain = Promise.resolve();
 
-    if (!native) {
+    if (mailer()) {
+      chain = mailSteps(m, jobs, el, results);
+    } else if (!native) {
       // iPhone : les PDF sont créés, placés dans le presse-papiers et transmis au raccourci « Envoyer PREJ », qui expédie les mails
       var built = Promise.all(jobs.map(function (j) { return j.build(); })).then(function (docs) {
         jobs.forEach(function (j, i) { j.doc = docs[i]; setRow(el, j.key, 'run', 'PDF enregistré'); });
@@ -2706,6 +2713,85 @@ window.PREJ_IMG = {
       P.sending = false; dlg.close();
       if (e && e.code === 'PERMISSION_DENIED') { P.startSmsSetup(function () { P.sendMission(m); }); return; }
       P.toast('Envoi interrompu : ' + String((e && e.message) || e), 5000);
+    });
+  }
+
+  // Mode mail (Android, ligne Free) : un seul mail avec tous les PDF, envoyé à toutes les adresses
+  function mailSteps(m, jobs, el, results) {
+    var to = [], bcc = [];
+    jobs.forEach(function (j) {
+      // Carnet de bord : la 2e adresse (facultative) part en copie cachée (Cci)
+      (j.key === 'carnet' ? j.to.slice(0, 1) : j.to).forEach(function (a) { if (to.indexOf(a) < 0) to.push(a); });
+      if (j.key === 'carnet') j.to.slice(1).forEach(function (a) { if (to.indexOf(a) < 0 && bcc.indexOf(a) < 0) bcc.push(a); });
+    });
+    var all = to.concat(bcc).join(', ');
+    var chain = Promise.resolve(), built = [];
+    jobs.forEach(function (j) {
+      chain = chain.then(function () {
+        setRow(el, j.key, 'run', 'Création du PDF…');
+        return j.build();
+      }).then(function (doc) {
+        j.doc = doc; built.push(j);
+        setRow(el, j.key, 'run', 'PDF prêt');
+      }).catch(function (e) {
+        var msg = String((e && e.message) || e);
+        results.push({ job: j, ok: false, failedTo: j.to, info: msg });
+        setRow(el, j.key, 'ko', msg);
+      });
+    });
+    return chain.then(function () {
+      if (!built.length) return;
+      return Promise.all(built.map(function (j) { return P.blobToBase64(j.doc.blob); })).then(function (b64s) {
+        // Si les pièces jointes dépassent P.MAIL_MAX, elles sont réparties sur 2, 3… mails, ouverts l'un après l'autre
+        var batches = [], cur = [], size = 0;
+        built.forEach(function (j, i) {
+          var sz = j.doc.blob.size;
+          if (cur.length && size + sz > P.MAIL_MAX) { batches.push(cur); cur = []; size = 0; }
+          cur.push({ job: j, b64: b64s[i] }); size += sz;
+        });
+        if (cur.length) batches.push(cur);
+        var nb = batches.length, step = Promise.resolve();
+        batches.forEach(function (batch, bi) {
+          step = step.then(function () {
+            var suffix = nb > 1 ? ' (mail ' + (bi + 1) + '/' + nb + ')' : '';
+            batch.forEach(function (x) { setRow(el, x.job.key, 'run', 'Joint au mail' + suffix + ' : touchez « Envoyer » dans Gmail'); });
+            return mailer().composeEmail({
+              to: to, bcc: bcc,
+              subject: 'Mission' + (m.numero ? ' OM ' + m.numero : '') + suffix + ' : ' + batch.map(function (x) { return x.job.label.replace(/ \(\d+\)$/, ''); }).join(', '),
+              body: 'Mission' + (m.numero ? ' OM ' + m.numero : '') + (m.date ? ' du ' + m.date.split('-').reverse().join('/') : '') + suffix +
+                (m.chef ? '\nChef d\'escorte : ' + m.chef : '') + '\n\nPièces jointes :\n' +
+                batch.map(function (x) { return '- ' + x.job.label.replace(/ \(\d+\)$/, '') + ' : ' + x.job.doc.name; }).join('\n'),
+              attachments: batch.map(function (x) { return { name: x.job.doc.name, data: x.b64 }; })
+            });
+          });
+        });
+        return step.then(function () { return nb; });
+      }).then(function (nb) {
+        return askMailSent(built, el, nb).then(function (yes) {
+          built.forEach(function (j) {
+            var info = yes ? (nb > 1 ? 'Envoyé (' + nb + ' mails) à ' : 'Envoyé dans un seul mail à ') + all : 'Mail non envoyé';
+            results.push(yes ? { job: j, ok: true, info: info } : { job: j, ok: false, failedTo: j.to, info: info });
+            setRow(el, j.key, yes ? 'ok' : 'ko', info);
+          });
+        });
+      }, function (e) {
+        var msg = String((e && e.message) || e);
+        built.forEach(function (j) { results.push({ job: j, ok: false, failedTo: j.to, info: msg }); setRow(el, j.key, 'ko', msg); });
+      });
+    });
+  }
+  P.MAIL_MAX = 15 * 1024 * 1024;   // pièces jointes par mail (Gmail accepte 25 Mo)
+
+  function askMailSent(pending, el, nb) {
+    return new Promise(function (resolve) {
+      var act = el.querySelector('#sendActions');
+      act.innerHTML = '<p style="margin:0;width:100%;flex-basis:100%;grid-column:1/-1">' +
+        (nb > 1 ? 'Les ' + nb + ' mails sont-ils partis ?' : 'Le mail est-il parti ?') + '</p>' +
+        '<button class="btn" data-mno>Non</button><button class="btn btn-primary" data-myes>Oui, envoyé' + (nb > 1 ? 's' : '') + '</button>';
+      act.hidden = false;
+      var done = function (v) { act.innerHTML = ''; act.hidden = true; resolve(v); };
+      act.querySelector('[data-myes]').onclick = function () { done(true); };
+      act.querySelector('[data-mno]').onclick = function () { done(false); };
     });
   }
 
@@ -2804,7 +2890,8 @@ window.PREJ_IMG = {
     var allOk = results.length && results.every(function (r) { return r.ok; });
     if (allOk) m.sentAt = when;
     // Protection des données : le nom des personnes détenues est effacé dès que la décision de fouille est partie
-    var fouilleOk = results.some(function (r) { return r.job.key === 'fouille' && r.ok; });
+    var fParts = results.filter(function (r) { return (r.job.kind || r.job.key) === 'fouille'; });
+    var fouilleOk = fParts.length > 0 && fParts.every(function (r) { return r.ok; });
     if (fouilleOk && (m.fouilles || []).some(function (f) { return f.detenu; })) {
       m.fouilles.forEach(function (f) { f.detenu = ''; });
       m.detenusPurgedAt = Date.now(); m.detenusPurgeReason = 'envoi';
@@ -2816,7 +2903,7 @@ window.PREJ_IMG = {
     var act = el.querySelector('#sendActions');
     var failed = results.filter(function (r) { return !r.ok && r.job.doc; });
     act.innerHTML = failed.map(function (r, i) {
-      return (sms() ? '<button class="btn" data-msg="' + i + '">Messages : ' + P.esc(r.job.label) + '</button>' : '') +
+      return (sms() ? '<button class="btn" data-msg="' + i + '">' + (mailer() ? 'Mail : ' : 'Messages : ') + P.esc(r.job.label) + '</button>' : '') +
         '<button class="btn" data-share="' + i + '">Enregistrer : ' + P.esc(r.job.label) + '</button>';
     }).join('') + '<button class="btn btn-primary" data-a="close">Fermer</button>';
     act.hidden = false;
@@ -2827,6 +2914,11 @@ window.PREJ_IMG = {
     P.$$('[data-msg]', act).forEach(function (b) {
       b.onclick = function () {
         var r = failed[Number(b.getAttribute('data-msg'))];
+        if (mailer()) {
+          openMail(r.job).then(function () { P.toast('Mail préparé pour ' + r.job.to.join(', ') + '.', 4000); })
+            .catch(function (e) { P.toast('Ouverture de la messagerie impossible : ' + String((e && e.message) || e), 5000); });
+          return;
+        }
         var to = (r.failedTo && r.failedTo.length ? r.failedTo : r.job.to)[0];
         P.blobToBase64(r.job.doc.blob).then(function (b64) {
           return sms().composeSms({ to: to, body: r.job.body, attachments: [{ name: r.job.doc.name, data: b64 }] });
@@ -2910,7 +3002,7 @@ window.PREJ_IMG = {
       var sub = parts[2];
       if (!sub) return hub(m);
       if (sub === 'infos') return missionForm(m);
-      var titles = { fouille: 'Décision de fouille', retour: 'Fiche retour mission', carnet: 'Carnet de bord' };
+      var titles = { fouille: 'Décision de fouille', retour: 'Fiche retour mission' };
       if (!titles[sub]) return P.go('#/m/' + m.id, true);
       top({ title: titles[sub], sub: 'Mission ' + (m.numero || '') + ' · ' + P.frDate(m.date), back: '#/m/' + m.id });
       bar('<div class="in"><button class="btn btn-primary btn-lg" id="b-done">Terminé</button></div>');
@@ -2924,15 +3016,15 @@ window.PREJ_IMG = {
   function dots(m) {
     var st = P.status(m);
     function d(k, label) { return '<span class="dot ' + (st[k].state === 'ok' ? 'ok' : st[k].state === 'part' ? 'part' : '') + '">' + (st[k].state === 'ok' ? '✓ ' : '') + label + '</span>'; }
-    return '<div class="dots">' + d('fouille', 'Fouille') + d('retour', 'Retour') + d('carnet', 'Carnet') + '</div>';
+    return '<div class="dots">' + d('fouille', 'Fouille') + d('retour', 'Retour') + '</div>';
   }
   function home() {
-    top({ title: 'PREJ Missions', sub: 'Fouille · Retour mission · Carnet de bord', gear: true });
+    top({ title: 'PREJ Missions', sub: 'Décision de fouille · Fiche retour mission', gear: true });
     var main = fresh();
     var list = P.missions.slice().sort(function (a, b) { return b.createdAt - a.createdAt; });
     if (!list.length) {
       main.innerHTML = '<div class="welcome"><h2>Aucune mission en cours</h2>' +
-        '<p>Créez la mission du jour : numéro, chauffeur, chef d\'escorte et agents. Ces informations rempliront automatiquement la décision de fouille, la fiche retour mission et le carnet de bord.</p>' +
+        '<p>Créez la mission du jour : numéro, chauffeur, chef d\'escorte et agents. Ces informations rempliront automatiquement la décision de fouille et la fiche retour mission.</p>' +
         '<button class="btn btn-primary btn-lg btn-block" id="b-new">Créer une nouvelle mission</button></div>' + COPY;
       $('#b-new').onclick = function () { P.go('#/nouvelle'); };
       bar('');
@@ -2974,7 +3066,7 @@ window.PREJ_IMG = {
   var COPY = '<p class="copyright">© RCZ / PREJ Mrs</p>';
   function refreshBanner() {
     var box = $('#smsBanner');
-    if (!box || !P.plugin('SmsComposer')) return;
+    if (!box || !P.plugin('SmsComposer') || P.mailMode()) { if (box) box.innerHTML = ''; return; }
     P.isSmsGranted().then(function (ok) {
       if (ok) { box.innerHTML = ''; return; }
       box.innerHTML = '<div class="missing" style="display:flex;gap:10px;align-items:center"><div style="flex:1"><b>Envoi automatique non activé</b><br>Autorisez l\'envoi des SMS pour que les PDF partent seuls.</div><button class="btn btn-primary" id="b-sms">Activer</button></div>';
@@ -2988,7 +3080,8 @@ window.PREJ_IMG = {
     var editing = !!m;
     var d = m || { numero: '', date: P.todayISO(), chauffeur: '', chef: P.settings.nom || '', contacts: [''] };
     var contacts = (d.contacts && d.contacts.length ? d.contacts.slice() : ['']);
-    top({ title: editing ? 'Mission ' + (m.numero || '') : 'Nouvelle mission', sub: editing ? 'Informations de la mission' : 'Rempli automatiquement dans les 3 documents', back: editing ? '#/m/' + m.id : '#/' });
+    var ecrous = [''];   // création : un numéro d'écrou par personne détenue (une décision de fouille chacune), sans limite
+    top({ title: editing ? 'Mission ' + (m.numero || '') : 'Nouvelle mission', sub: editing ? 'Informations de la mission' : 'Rempli automatiquement dans les 2 documents', back: editing ? '#/m/' + m.id : '#/' });
     var main = fresh();
     function contactRows() {
       return contacts.map(function (c, i) {
@@ -2997,6 +3090,14 @@ window.PREJ_IMG = {
           (i > 0 ? '<button type="button" class="rm-btn" data-rmc="' + i + '" aria-label="Retirer cet agent">✕</button>' : '') + '</div></div>';
       }).join('') +
         (contacts.length < MAX_CONTACTS ? '<button type="button" class="link" id="n-addc">+ Ajouter un agent contact (' + (MAX_CONTACTS - contacts.length) + ' possible' + (MAX_CONTACTS - contacts.length > 1 ? 's' : '') + ')</button>' : '');
+    }
+    function ecrouRows() {
+      return ecrous.map(function (c, i) {
+        return '<div class="field"><label for="n-e' + i + '">Numéro d\'écrou' + (ecrous.length > 1 ? ' — personne ' + (i + 1) : '') + '</label>' +
+          '<div class="row-input"><input type="text" id="n-e' + i + '" data-e="' + i + '" value="' + esc(c) + '" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Ex. : 123456">' +
+          (i > 0 ? '<button type="button" class="rm-btn" data-rme="' + i + '" aria-label="Retirer ce numéro">✕</button>' : '') + '</div></div>';
+      }).join('') +
+        '<button type="button" class="link" id="n-adde">+ Ajouter une personne détenue (' + ecrous.length + ' saisie' + (ecrous.length > 1 ? 's' : '') + ')</button>';
     }
     main.innerHTML = '<div class="panel">' +
       '<div class="section"><div class="section-title"><span class="section-num">01</span><h3>Mission</h3></div>' +
@@ -3009,7 +3110,15 @@ window.PREJ_IMG = {
         '<div class="field"><label for="n-chef">Chef d\'escorte</label><input type="text" id="n-chef" value="' + esc(d.chef) + '" autocapitalize="words"></div>' +
         (editing ? '<div class="field"><label for="n-qual">Qualité du chef d\'escorte (signature de la fouille)</label><input type="text" id="n-qual" value="' + esc(m.chefQualite) + '"></div>' : '') +
         '<div id="n-contacts">' + contactRows() + '</div>' +
-      '</div></div>' +
+      '</div>' +
+      (editing ? '' :
+      '<div class="section"><div class="section-title"><span class="section-num">03</span><h3>Personne détenue, juridiction et service</h3></div>' +
+        '<div id="n-ecrous">' + ecrouRows() + '</div>' +
+        '<div class="field"><label for="n-juri">Lieu de juridiction</label><input type="text" id="n-juri" value="" autocapitalize="words" placeholder="Ex. : Tribunal judiciaire"></div>' +
+        '<div class="field"><label for="n-debut">Début de service</label><input type="time" id="n-debut" value=""></div>' +
+        '<p style="color:var(--text-muted);font-size:13px;margin:4px 0 0">Le numéro d\'écrou et le lieu de juridiction remplissent la décision de fouille (« À destination de »). Le lieu de juridiction et le début de service remplissent la fiche retour mission.</p>' +
+      '</div>') +
+      '</div>' +
       '<p class="err" id="n-err" hidden></p>' +
       (editing ? '<button class="btn btn-ghost btn-block" id="n-del" style="color:var(--danger);margin-top:10px">Supprimer la mission</button>' : '');
 
@@ -3022,6 +3131,15 @@ window.PREJ_IMG = {
       });
     }
     wireContacts();
+    function readEcrous() { ecrous = $$('[data-e]').map(function (i) { return i.value; }); }
+    function wireEcrous() {
+      var add = $('#n-adde');
+      if (add) add.onclick = function () { readEcrous(); ecrous.push(''); $('#n-ecrous').innerHTML = ecrouRows(); wireEcrous(); var l = $$('[data-e]'); l[l.length - 1].focus(); };
+      $$('[data-rme]').forEach(function (b) {
+        b.onclick = function () { readEcrous(); ecrous.splice(Number(b.getAttribute('data-rme')), 1); $('#n-ecrous').innerHTML = ecrouRows(); wireEcrous(); };
+      });
+    }
+    if (!editing) wireEcrous();
     function values() {
       readContacts();
       return {
@@ -3056,6 +3174,19 @@ window.PREJ_IMG = {
         if (!v.chef) miss.push("le chef d'escorte");
         if (miss.length) { var e = $('#n-err'); e.textContent = 'Renseignez ' + miss.join(', ') + '.'; e.hidden = false; return; }
         var nm = P.newMission(v);
+        // Lieu de juridiction → fiche retour mission et « À destination de » des décisions de fouille
+        var juri = $('#n-juri').value.trim();
+        if (juri) { nm.retour.juridiction = juri; nm.fouilles[0].destination = juri; }
+        // Numéros d'écrou : une décision de fouille par personne détenue ; début de service → fiche retour mission
+        readEcrous();
+        var list = ecrous.map(function (x) { return x.trim(); }).filter(Boolean);
+        list.forEach(function (num, i) {
+          var f = i === 0 ? nm.fouilles[0] : P.blankFouille(nm);
+          f.detenu = num;
+          if (i > 0) nm.fouilles.push(f);
+        });
+        var debut = $('#n-debut').value;
+        if (debut) nm.retour.priseService = debut;
         P.missions.push(nm); P.saveMissions();
         P.go('#/m/' + nm.id, true);
       };
@@ -3083,8 +3214,7 @@ window.PREJ_IMG = {
         '<button class="btn" id="h-sign">' + (m.signature ? 'Changer' : 'Signer') + '</button></div>' +
       '<div class="list-head" style="margin-top:16px"><h2>Documents</h2></div>' +
       doc('fouille', P.ICONS.search, 'Décision de fouille', st.fouille) +
-      doc('retour', P.ICONS.doc, 'Fiche retour mission', st.retour) +
-      doc('carnet', P.ICONS.car, 'Carnet de bord', st.carnet);
+      doc('retour', P.ICONS.doc, 'Fiche retour mission', st.retour);
     $('#h-edit').onclick = function () { P.go('#/m/' + m.id + '/infos'); };
     $('#h-sign').onclick = function () {
       P.askSignature("Signature de " + (m.chef || "chef d'escorte"), m.signature).then(function (url) {
@@ -3106,9 +3236,8 @@ window.PREJ_IMG = {
     var log = P.getLog().slice(0, 12);
     main.innerHTML = '<div class="panel">' +
       '<div class="section"><div class="section-title"><span class="section-num">01</span><h3>Destinataires des PDF (protégés)</h3></div>' +
-        '<div class="field"><label>Décision de fouille</label><input type="text" readonly value="' + esc(s.fouilleEmail || 'Non renseigné') + '"></div>' +
-        '<div class="field"><label>Fiche retour mission</label><input type="text" readonly value="' + esc(s.retourEmail || 'Non renseigné') + '"></div>' +
-        '<div class="field"><label>Carnet de bord</label><input type="text" readonly value="' + esc([P.resp.email1, P.resp.email2].filter(Boolean).join(', ') || 'Non renseigné') + '"></div>' +
+        '<div class="field"><label>Décision de fouille</label><input type="text" readonly value="' + esc([s.fouilleEmail, s.fouilleEmail2].filter(Boolean).join(', ') || 'Non renseigné') + '"></div>' +
+        '<div class="field"><label>Fiche retour mission</label><input type="text" readonly value="' + esc([s.retourEmail, s.retourEmail2].filter(Boolean).join(', ') || 'Non renseigné') + '"></div>' +
         '<div class="field"><label>Unité / établissement par défaut</label><input type="text" readonly value="' + esc(P.resp.origin || 'Non renseigné') + '"></div>' +
         '<div class="field">' +
         '<button class="link" id="s-resp" style="align-self:flex-start">🔒 Modifier (mot de passe responsable)</button></div>' +
@@ -3138,7 +3267,13 @@ window.PREJ_IMG = {
           return '<button type="button" class="swatch' + (P.validHex(s.accent) === a.hex ? ' sel' : '') + '" data-hex="' + a.hex + '" title="' + a.name + '" aria-label="' + a.name + '" style="background:' + a.hex + '"></button>';
         }).join('') + '</div>' +
       '</div>' +
-      (P.plugin('SmsComposer') ? '<div class="section"><div class="section-title"><span class="section-num">05</span><h3>Envoi automatique des MMS</h3></div><div id="s-sms" style="color:var(--text-muted)">Vérification…</div></div>' : '') +
+      (P.plugin('SmsComposer') ? '<div class="section"><div class="section-title"><span class="section-num">05</span><h3>Envoi des PDF</h3></div>' +
+        '<div class="seg" id="s-mode" style="margin-bottom:10px"><button type="button" data-mode="mms"' + (!P.mailMode() ? ' class="on"' : '') + '>💬 MMS (autres)</button>' +
+        '<button type="button" data-mode="mail"' + (P.mailMode() ? ' class="on"' : '') + '>✉️ Mail (Free)</button></div>' +
+        '<p style="color:var(--text-muted);font-size:13px;margin:0 0 10px">' + (P.mailMode()
+          ? 'Ligne <b>Free</b> : Gmail s\'ouvre avec <b>un seul mail</b> : toutes les adresses, l\'objet et les PDF joints. Il reste à toucher « Envoyer ».'
+          : '<b>Autres opérateurs</b> (Orange, SFR, Bouygues…) : les PDF partent seuls par MMS. Demande l\'autorisation SMS.') + '</p>' +
+        '<div id="s-sms" style="color:var(--text-muted)">Vérification…</div></div>' : '') +
       '<div class="section"><div class="section-title"><span class="section-num">06</span><h3>Derniers envois</h3></div>' +
         (log.length ? '<ul class="log">' + log.map(function (e) {
           var d = new Date(e.at);
@@ -3177,17 +3312,26 @@ window.PREJ_IMG = {
       b.onclick = function () { s.accent = b.getAttribute('data-hex'); P.saveSettings(); P.applyTheme(s.theme, s.accent); $$('[data-hex]').forEach(function (x) { x.classList.toggle('sel', x === b); }); };
     });
     $('#s-resp').onclick = respGate;
+    $$('#s-mode [data-mode]').forEach(function (b) {
+      b.onclick = function () {
+        P.settings.sendMode = b.getAttribute('data-mode');
+        P.saveSettings();
+        P.toast(P.mailMode() ? 'Envoi par mail (Free).' : 'Envoi par MMS (autres opérateurs).', 2500);
+        settings();
+      };
+    });
     var smsBox = $('#s-sms');
-    if (smsBox) P.isSmsGranted().then(function (ok) {
+    if (smsBox && P.mailMode()) smsBox.innerHTML = '<span style="color:var(--success);font-weight:600">✓ Mail : aucune autorisation SMS nécessaire.</span>';
+    else if (smsBox) P.isSmsGranted().then(function (ok) {
       smsBox.innerHTML = ok ? '<span style="color:var(--success);font-weight:600">✓ Activé : les PDF partent sans ouvrir Messages.</span>'
         : '<span>Non activé.</span> <button class="btn btn-primary" id="s-smsgo" style="margin-left:8px">Activer</button>';
       var g = $('#s-smsgo'); if (g) g.onclick = function () { P.startSmsSetup(function () { settings(); }); };
     });
   }
 
-  // Paramètres responsable du carnet de bord (mot de passe, comme dans le carnet d'origine)
+  // Paramètres responsable (protégés par mot de passe)
   function respGate() {
-    var g = P.modal('<h3>Accès protégé</h3><p>Entrez le mot de passe pour modifier les paramètres du carnet de bord.</p>' +
+    var g = P.modal('<h3>Accès protégé</h3><p>Entrez le mot de passe pour modifier les paramètres responsable.</p>' +
       '<div class="field"><label for="pw">Mot de passe</label><input type="password" id="pw" inputmode="numeric" autocomplete="off"></div>' +
       '<div class="actions"><button class="btn" data-a="no">Annuler</button><button class="btn btn-primary" data-a="ok">Valider</button></div>');
     var input = g.el.querySelector('#pw');
@@ -3200,17 +3344,14 @@ window.PREJ_IMG = {
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
   }
   function respEdit() {
-    var r = P.resp, chosen = P.validHex(r.pdfAccent) || '#C9860E', ecu = P.getEcusson();
+    var r = P.resp, ecu = P.getEcusson();
     function ecuSrc() { return ecu || window.PREJ_IMG.tampon; }
-    var e = P.modal('<h3>Paramètres responsable</h3><p>Chaque document part par MMS vers ces adresses, PDF en pièce jointe. Seules les adresses @justice.fr sont acceptées.</p>' +
+    var e = P.modal('<h3>Paramètres responsable</h3><p>Chaque document part vers ses adresses, PDF en pièce jointe. Seules les adresses @justice.fr sont acceptées.</p>' +
       '<div class="field"><label for="rf">Décision de fouille</label><input type="email" id="rf" inputmode="email" autocapitalize="off" value="' + esc(P.settings.fouilleEmail) + '" placeholder="prenom.nom@justice.fr"></div>' +
+      '<div class="field"><label for="rf2">Décision de fouille : 2e adresse (facultatif)</label><input type="email" id="rf2" inputmode="email" autocapitalize="off" value="' + esc(P.settings.fouilleEmail2) + '" placeholder="prenom.nom@justice.fr"></div>' +
       '<div class="field"><label for="rr">Fiche retour mission</label><input type="email" id="rr" inputmode="email" autocapitalize="off" value="' + esc(P.settings.retourEmail) + '" placeholder="prenom.nom@justice.fr"></div>' +
-      '<div class="field"><label for="r1">Carnet de bord</label><input type="email" id="r1" inputmode="email" autocapitalize="off" value="' + esc(r.email1) + '" placeholder="prenom.nom@justice.fr"></div>' +
-      '<div class="field"><label for="r2">Carnet de bord : 2e adresse (facultatif)</label><input type="email" id="r2" inputmode="email" autocapitalize="off" value="' + esc(r.email2) + '" placeholder="prenom.nom@justice.fr"></div>' +
+      '<div class="field"><label for="rr2">Fiche retour mission : 2e adresse (facultatif)</label><input type="email" id="rr2" inputmode="email" autocapitalize="off" value="' + esc(P.settings.retourEmail2) + '" placeholder="prenom.nom@justice.fr"></div>' +
       '<div class="field"><label for="ro">Unité</label><input type="text" id="ro" value="' + esc(r.origin) + '"><span class="hint">Sert aussi d\'établissement par défaut dans la décision de fouille.</span></div>' +
-      '<div class="field"><label>Couleur du PDF</label><div class="swatches">' + P.ACCENTS.map(function (a) {
-        return '<button type="button" class="swatch' + (a.hex === chosen ? ' sel' : '') + '" data-pdf="' + a.hex + '" aria-label="' + a.name + '" style="background:' + a.hex + '"></button>';
-      }).join('') + '</div></div>' +
       '<div class="field"><label>Écusson de la fiche retour mission</label>' +
         '<div style="display:flex;gap:12px;align-items:center">' +
           '<div style="width:84px;height:84px;flex:0 0 84px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);display:grid;place-items:center;overflow:hidden">' +
@@ -3232,19 +3373,18 @@ window.PREJ_IMG = {
         .then(function () { input.value = ''; });
     });
     ecuReset.onclick = function () { ecu = ''; ecuImg.src = ecuSrc(); ecuReset.hidden = true; };
-    P.$$('[data-pdf]', e.el).forEach(function (b) {
-      b.onclick = function () { chosen = b.getAttribute('data-pdf'); P.$$('[data-pdf]', e.el).forEach(function (x) { x.classList.toggle('sel', x === b); }); };
-    });
     e.el.querySelector('[data-a="no"]').onclick = e.close;
     e.el.querySelector('[data-a="ok"]').onclick = function () {
-      var e1 = e.el.querySelector('#r1').value.trim().toLowerCase(), e2 = e.el.querySelector('#r2').value.trim().toLowerCase(), err = e.el.querySelector('#r-err');
-      var ef = e.el.querySelector('#rf').value.trim().toLowerCase(), er = e.el.querySelector('#rr').value.trim().toLowerCase();
-      if ((e1 && !P.isAllowedEmail(e1)) || (e2 && !P.isAllowedEmail(e2)) || (ef && !P.isAllowedEmail(ef)) || (er && !P.isAllowedEmail(er))) { err.textContent = 'Seules les adresses @justice.fr sont acceptées.'; err.hidden = false; return; }
-      if (!e1 && e2) { e1 = e2; e2 = ''; }
-      if (e2 === e1) e2 = '';
-      r.email1 = e1; r.email2 = e2; r.origin = e.el.querySelector('#ro').value.trim() || 'PREJ Marseille'; r.pdfAccent = chosen;
+      var err = e.el.querySelector('#r-err');
+      function val(id) { return e.el.querySelector(id).value.trim().toLowerCase(); }
+      var ef = val('#rf'), ef2 = val('#rf2'), er = val('#rr'), er2 = val('#rr2');
+      if ([ef, ef2, er, er2].some(function (a) { return a && !P.isAllowedEmail(a); })) { err.textContent = 'Seules les adresses @justice.fr sont acceptées.'; err.hidden = false; return; }
+      // Une 2e adresse seule devient l'adresse principale ; un doublon est ignoré
+      if (!ef && ef2) { ef = ef2; ef2 = ''; } if (ef2 === ef) ef2 = '';
+      if (!er && er2) { er = er2; er2 = ''; } if (er2 === er) er2 = '';
+      r.origin = e.el.querySelector('#ro').value.trim() || 'PREJ Marseille';
       if (ecu !== P.getEcusson() && !P.setEcusson(ecu)) { err.textContent = "Mémoire pleine : impossible d'enregistrer l'écusson."; err.hidden = false; return; }
-      P.settings.fouilleEmail = ef; P.settings.retourEmail = er; P.saveSettings();
+      P.settings.fouilleEmail = ef; P.settings.fouilleEmail2 = ef2; P.settings.retourEmail = er; P.settings.retourEmail2 = er2; P.saveSettings();
       P.saveResp(); e.close(); P.toast('Paramètres enregistrés.'); settings();
     };
   }
